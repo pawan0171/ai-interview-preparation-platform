@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # MongoDB Database Service
+  # ==========================================
+  mongo:
+    image: mongo:7-jammy
+    container_name: prepai-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - prepai-network
+
+  # ==========================================
+  # Redis In-Memory Cache Service
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: prepai-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - prepai-network
+
+  # ==========================================
+  # Node.js + Express Backend & WebSockets
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prepai-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/ai-interview-db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-super_secret_interview_jwt_key_123_abc_!@#}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-your_gemini_api_key_here}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+    depends_on:
+      - mongo
+      - redis
+    volumes:
+      - backend-uploads:/app/uploads
+    networks:
+      - prepai-network
+
+  # ==========================================
+  # React Frontend (Vite + Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: prepai-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - prepai-network
+
+# ==========================================
+# Persistent Volumes & Network Bridges
+# ==========================================
+volumes:
+  mongo-data:
+    driver: local
+  redis-data:
+    driver: local
+  backend-uploads:
+    driver: local
+
+networks:
+  prepai-network:
+    driver: bridge

@@ -17,7 +17,11 @@ It provides developers with realistic, target-specific whiteboard, conceptual, a
     *   **In-Browser Compiler**: Mock terminal execution outputs running in safe, isolated client sandboxes.
 *   **AI Evaluation Engine**: Gemini evaluates submissions to calculate scores (0-10), highlight technical strengths/weaknesses, and write senior-level model replies.
 
-### 🏢 2. Company-wise Whiteboard Assessments
+### 🌐 2. Dynamic Domain Engine (Learn Any Domain)
+*   **Student Choice Architecture**: Students can type *any* custom technology, framework, language, or concept (e.g., Golang, Rust, Kubernetes, Spring Boot, Blockchain, FastAPI, GraphQL, Data Science). The platform generates tailored questions and evaluates answers dynamically for any topic.
+*   **Curated 12-Domain Catalog**: Interactive tabbed catalog covering Web, Mobile, Cloud, DevOps, Distributed Systems, Core CS & AI.
+
+### 🏢 3. Company-wise Whiteboard Assessments
 *   Configure custom test profiles targeting hiring models of **Google, Amazon, Microsoft, Meta, and Netflix**.
 *   Select targeted engineering roles: Software Engineer, Frontend Developer, Backend Developer, Systems Architect.
 
@@ -31,18 +35,20 @@ It provides developers with realistic, target-specific whiteboard, conceptual, a
 *   Drag-and-drop PDF resume uploader.
 *   Extracts skill tags, lists missing critical technologies, provides detailed textual resume corrections, and calculates an ATS compatibility score.
 
-### 🔔 5. Platform Administration & Notifications
+### 🔔 5. Platform Administration & Real-Time WebSockets
+*   **Real-time Push Notifications (Socket.io)**: Instant notifications for milestone scores, streak completions, and role promotions pushed via persistent WebSockets with floating toast alerts and synthesized audio chimes.
 *   **Admin Panel Dashboard**: Access aggregated stats (total active users, sessions, global averages) and instantly manage user administrative privileges.
-*   **Alert Notifications Dropdown**: Live bell alerts tracking level-ups, streak milestones, and achievements.
+*   **Alert Notifications Dropdown**: Live bell alerts with real-time status badge tracking socket connectivity.
 *   **Smooth Theme Switcher**: Toggle between beautiful dark glassmorphism and clear light glassmorphic backgrounds.
 
 ---
 
 ## 🛠️ Technology Stack
 
-*   **Frontend**: React (Vite), Tailwind CSS v4, Lucide Icons, Axios.
-*   **Backend**: Node.js, Express.js, JWT, Bcrypt.js, Multer.
-*   **Database**: MongoDB Atlas, Mongoose ODM.
+*   **Frontend**: React (Vite), Tailwind CSS v4, Socket.io-client, Lucide Icons, Axios.
+*   **Backend**: Node.js, Express.js, Socket.io, ioredis, JWT, Bcrypt.js, Multer.
+*   **Database & Cache**: MongoDB Atlas (Mongoose ODM) & Redis 7 (In-Memory Caching).
+*   **DevOps & Deployment**: Docker, Docker Compose, Nginx.
 *   **AI Engine**: Google Generative AI (Gemini 1.5 Flash).
 *   **PDF Parser**: pdf-parse.
 
@@ -106,6 +112,22 @@ The client will start on `http://localhost:5173`. Open it in your browser to beg
 
 ---
 
+## 🐳 Option B: 1-Command Launch with Docker Compose
+
+Run the entire 4-tier stack (MongoDB, Redis, Backend, Frontend) with a single command:
+
+```bash
+docker compose up --build
+```
+
+* **Frontend UI**: `http://localhost:5173`
+* **Backend API & WebSockets**: `http://localhost:5000`
+* **MongoDB**: `localhost:27017`
+* **Redis Cache**: `localhost:6379`
+
+---
+
 ## 🛡️ Robust Security & Fail-Safes
 1.  **Client-Side Sandboxing**: Runs JavaScript scripts inside safe browser evaluation boundaries and uses mock environments for compiled languages (Python, Java, C++), preventing server execution of untrusted scripts.
 2.  **Graceful Degrades**: Automatically manages failures. If the Gemini API is blocked or limits are reached, the system defaults to keywords scanning and local mock templates to ensure zero downtime.
+3.  **Redis Cache-Bypass**: If Redis is offline, the backend automatically falls back to direct MongoDB queries without throwing errors.

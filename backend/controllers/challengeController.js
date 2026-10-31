@@ -1,7 +1,8 @@
 const DailyChallenge = require('../models/DailyChallenge');
 const ChallengeAttempt = require('../models/ChallengeAttempt');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { notifyUser } = require('../utils/notificationService');
+const { getCache, setCache, delCache } = require('../utils/redis');
 const gemini = require('../utils/gemini');
 
 // Helper to get today's date string (YYYY-MM-DD)
@@ -35,26 +36,35 @@ const isYesterday = (lastDate) => {
 const getDailyChallenge = async (req, res) => {
   try {
     const todayStr = getTodayDateString();
-    
-    // Find today's challenge
-    let challenge = await DailyChallenge.findOne({ date: todayStr });
+    const cacheKey = `challenge:today:${todayStr}`;
 
-    // If not found, generate one dynamically using rotating topics
+    // Check Redis cache first
+    let challenge = await getCache(cacheKey);
+
     if (!challenge) {
-      const categories = ['JavaScript', 'React', 'Node.js', 'DBMS', 'OOP', 'HR'];
-      const dayIndex = new Date().getDate() % categories.length;
-      const category = categories[dayIndex];
-      const difficulty = 'Medium';
+      // Find today's challenge in DB
+      challenge = await DailyChallenge.findOne({ date: todayStr });
 
-      console.log(`[Challenge Service] Creating daily challenge for: ${todayStr} (Category: ${category})...`);
-      const questionText = await gemini.generateDailyChallenge(category);
+      // If not found, generate one dynamically using rotating topics
+      if (!challenge) {
+        const categories = ['JavaScript', 'React', 'Node.js', 'DBMS', 'OOP', 'HR'];
+        const dayIndex = new Date().getDate() % categories.length;
+        const category = categories[dayIndex];
+        const difficulty = 'Medium';
 
-      challenge = await DailyChallenge.create({
-        date: todayStr,
-        questionText,
-        category,
-        difficulty
-      });
+        console.log(`[Challenge Service] Creating daily challenge for: ${todayStr} (Category: ${category})...`);
+        const questionText = await gemini.generateDailyChallenge(category);
+
+        challenge = await DailyChallenge.create({
+          date: todayStr,
+          questionText,
+          category,
+          difficulty
+        });
+      }
+
+      // Store in Redis cache for 24 hours
+      await setCache(cacheKey, challenge, 86400);
     }
 
     // Check if user has already attempted this challenge today
@@ -162,7 +172,7 @@ const submitDailyChallengeAnswer = async (req, res) => {
 
     // Trigger Notification rewards
     if (leveledUp) {
-      await Notification.create({
+      await notifyUser({
         userId: req.user._id,
         title: 'Leveled Up!',
         message: `Congratulations! You reached Level ${newLevel}! Keep practicing to build XP.`,
@@ -171,13 +181,16 @@ const submitDailyChallengeAnswer = async (req, res) => {
     }
 
     if (user.streak > 0 && user.streak % 3 === 0) {
-      await Notification.create({
+      await notifyUser({
         userId: req.user._id,
         title: 'Streak Milestone!',
         message: `Outstanding! You hit a consecutive practice streak of ${user.streak} days.`,
         type: 'quest'
       });
     }
+
+    // Invalidate cached leaderboard since user XP changed
+    await delCache('leaderboard:top');
 
     res.status(201).json({
       success: true,

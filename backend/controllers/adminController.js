@@ -1,12 +1,25 @@
 const User = require('../models/User');
 const Interview = require('../models/Interview');
 const ResumeReport = require('../models/ResumeReport');
+const { notifyUser } = require('../utils/notificationService');
+const { getCache, setCache, delCache } = require('../utils/redis');
 
 // @desc    Get aggregated system KPI statistics
 // @route   GET /api/admin/stats
 // @access  Private/Admin
 const getSystemStats = async (req, res) => {
   try {
+    const cacheKey = 'admin:stats';
+    const cachedStats = await getCache(cacheKey);
+
+    if (cachedStats) {
+      return res.json({
+        success: true,
+        data: cachedStats,
+        cached: true
+      });
+    }
+
     const totalUsers = await User.countDocuments({});
     const totalInterviews = await Interview.countDocuments({});
     const totalResumes = await ResumeReport.countDocuments({});
@@ -17,14 +30,20 @@ const getSystemStats = async (req, res) => {
     ]);
     const systemAverageScore = Math.round(avgScoreAgg[0]?.avgScore || 0);
 
+    const statsData = {
+      totalUsers,
+      totalInterviews,
+      totalResumes,
+      systemAverageScore
+    };
+
+    // Cache in Redis for 60 seconds
+    await setCache(cacheKey, statsData, 60);
+
     res.json({
       success: true,
-      data: {
-        totalUsers,
-        totalInterviews,
-        totalResumes,
-        systemAverageScore
-      }
+      data: statsData,
+      cached: false
     });
   } catch (error) {
     console.error(`[Admin Stats Error] ${error.message}`);
@@ -66,6 +85,19 @@ const toggleUserAdmin = async (req, res) => {
 
     user.isAdmin = !user.isAdmin;
     await user.save();
+
+    // Invalidate cached admin stats
+    await delCache('admin:stats');
+
+    // Push real-time notification to the target user
+    await notifyUser({
+      userId: user._id,
+      title: 'Administrative Role Updated',
+      message: user.isAdmin
+        ? 'Congratulations! You have been granted Administrator permissions.'
+        : 'Your Administrator privileges have been revoked by the system administrator.',
+      type: 'system'
+    });
 
     res.json({
       success: true,

@@ -1,5 +1,6 @@
 const Interview = require('../models/Interview');
-const Notification = require('../models/Notification');
+const { notifyUser } = require('../utils/notificationService');
+const { delCache } = require('../utils/redis');
 const gemini = require('../utils/gemini');
 
 // @desc    Generate questions for a new interview session
@@ -9,18 +10,17 @@ const generateInterviewQuestions = async (req, res) => {
   try {
     const { category, difficulty } = req.body;
 
-    if (!category || !difficulty) {
-      return res.status(400).json({ success: false, message: 'Please provide category and difficulty' });
+    if (!category || typeof category !== 'string' || category.trim().length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid subject domain or topic' });
     }
 
-    const validCategories = ['JavaScript', 'React', 'Node.js', 'DBMS', 'OOP', 'HR'];
     const validDifficulties = ['Easy', 'Medium', 'Hard'];
 
-    if (!validCategories.includes(category) || !validDifficulties.includes(difficulty)) {
-      return res.status(400).json({ success: false, message: 'Invalid category or difficulty selection' });
+    if (!validDifficulties.includes(difficulty)) {
+      return res.status(400).json({ success: false, message: 'Invalid difficulty selection (choose Easy, Medium, or Hard)' });
     }
 
-    const questions = await gemini.generateQuestions(category, difficulty);
+    const questions = await gemini.generateQuestions(category.trim(), difficulty);
     
     res.json({
       success: true,
@@ -69,7 +69,7 @@ const evaluateAndSaveInterview = async (req, res) => {
     // Trigger notification milestones
     const completedCount = await Interview.countDocuments({ userId: req.user._id });
     if (completedCount === 1) {
-      await Notification.create({
+      await notifyUser({
         userId: req.user._id,
         title: 'First Step Completed!',
         message: `Congratulations! You finished your first mock assessment in ${category}.`,
@@ -78,13 +78,16 @@ const evaluateAndSaveInterview = async (req, res) => {
     }
 
     if (evaluation.overallScore >= 80) {
-      await Notification.create({
+      await notifyUser({
         userId: req.user._id,
         title: 'Outstanding Performance!',
         message: `You scored an excellent ${evaluation.overallScore}% in ${category} (${difficulty}).`,
         type: 'achievement'
       });
     }
+
+    // Invalidate cached admin statistics
+    await delCache('admin:stats');
 
     res.status(201).json({
       success: true,

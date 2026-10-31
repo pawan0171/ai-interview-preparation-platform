@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './components/Landing';
@@ -32,9 +33,10 @@ function App() {
 
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-[#0b0f19] text-gray-100 selection:bg-indigo-500 selection:text-white">
-          <Navbar />
+      <SocketProvider>
+        <Router>
+          <div className="min-h-screen bg-[#0b0f19] text-gray-100 selection:bg-indigo-500 selection:text-white">
+            <Navbar />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
@@ -149,8 +151,9 @@ function App() {
           </Routes>
         </div>
       </Router>
-    </AuthProvider>
-  );
+    </SocketProvider>
+  </AuthProvider>
+);
 }
 
 export default App;

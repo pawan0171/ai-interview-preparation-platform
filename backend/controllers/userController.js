@@ -1,10 +1,22 @@
 const User = require('../models/User');
+const { getCache, setCache } = require('../utils/redis');
 
 // @desc    Get top users ranked by XP
 // @route   GET /api/users/leaderboard
 // @access  Private
 const getLeaderboard = async (req, res) => {
   try {
+    const cacheKey = 'leaderboard:top';
+    const cachedLeaderboard = await getCache(cacheKey);
+
+    if (cachedLeaderboard) {
+      return res.json({
+        success: true,
+        data: cachedLeaderboard,
+        cached: true
+      });
+    }
+
     // Fetch users sorted by XP in descending order, limit to top 15
     const leaderboard = await User.find({})
       .sort({ xp: -1 })
@@ -21,9 +33,13 @@ const getLeaderboard = async (req, res) => {
       rank: index + 1
     }));
 
+    // Cache in Redis for 60 seconds
+    await setCache(cacheKey, formattedLeaderboard, 60);
+
     res.json({
       success: true,
-      data: formattedLeaderboard
+      data: formattedLeaderboard,
+      cached: false
     });
   } catch (error) {
     console.error(`[Leaderboard Fetch Error] ${error.message}`);

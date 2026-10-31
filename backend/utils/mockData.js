@@ -139,9 +139,27 @@ const mockQuestions = {
   }
 };
 
-const getMockQuestions = (category, difficulty) => {
-  const cat = mockQuestions[category] || mockQuestions['JavaScript'];
-  return cat[difficulty] || cat['Medium'];
+const getMockQuestions = (category, difficulty = 'Medium') => {
+  // Check if predefined in mock dataset
+  const cat = mockQuestions[category];
+  if (cat && cat[difficulty]) {
+    return cat[difficulty];
+  }
+
+  // Dynamic question generator for any student-chosen domain/topic
+  const levelPrefix = difficulty === 'Easy' 
+    ? 'fundamental concepts and beginner principles'
+    : difficulty === 'Hard'
+    ? 'advanced internals, scalability, and complex edge cases'
+    : 'core mechanics, best practices, and architecture';
+
+  return [
+    { questionText: `Explain the fundamental architecture and core principles of ${category}. How does it solve problems in modern software engineering?` },
+    { questionText: `In the context of ${difficulty} level expertise, what are the key performance optimizations and best practices when working with ${category}?` },
+    { questionText: `Describe a scenario where you would choose ${category} over competing technologies or alternative patterns. What are the key trade-offs?` },
+    { questionText: `Explain how state management, error handling, or asynchronous operations are designed in ${category}.` },
+    { questionText: `Walk me through how you would architect and deploy a robust, production-grade application utilizing ${category} at scale.` }
+  ];
 };
 
 const evaluateMockAnswers = (category, difficulty, questionsAndAnswers) => {

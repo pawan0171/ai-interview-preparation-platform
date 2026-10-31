@@ -15,12 +15,15 @@ import {
   Sun,
   Moon,
   Shield,
-  Building2
+  Building2,
+  Radio
 } from 'lucide-react';
 import api from '../utils/api';
+import { useSocket } from '../context/SocketContext';
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
+  const { socket, connected } = useSocket();
   const navigate = useNavigate();
 
   // Theme support
@@ -39,6 +42,7 @@ const Navbar = () => {
     }
   }, [theme]);
 
+  // Initial fetch of notifications
   useEffect(() => {
     if (!user) return;
 
@@ -54,9 +58,22 @@ const Navbar = () => {
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 20000); // Check every 20s
-    return () => clearInterval(interval);
   }, [user]);
+
+  // Real-time WebSocket event listener (replaces 20s polling!)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewNotification = (notification) => {
+      setNotifications(prev => [notification, ...prev]);
+    };
+
+    socket.on('new_notification', handleNewNotification);
+
+    return () => {
+      socket.off('new_notification', handleNewNotification);
+    };
+  }, [socket]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -187,7 +204,20 @@ const Navbar = () => {
                 {showNotifications && (
                   <div className="absolute right-0 mt-2 w-80 glass-panel border border-gray-800 rounded-xl shadow-2xl overflow-hidden z-[100] max-h-96 flex flex-col">
                     <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-indigo-950/40">
-                      <span className="text-xs font-bold text-gray-200">Notifications ({unreadCount} new)</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-200">Notifications ({unreadCount} new)</span>
+                        <span 
+                          title={connected ? "WebSockets Connected (Real-time)" : "Connecting to WebSockets..."}
+                          className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            connected 
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                          {connected ? 'Live' : 'Offline'}
+                        </span>
+                      </div>
                       {unreadCount > 0 && (
                         <button
                           onClick={markAllNotificationsRead}

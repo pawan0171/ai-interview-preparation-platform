@@ -22,7 +22,13 @@ app.use(cors({
 app.use(express.json());
 app.use(morgan('dev'));
 
+const http = require('http');
 const path = require('path');
+const { initSocket } = require('./utils/socket');
+
+// Create HTTP server & wrap with Socket.io
+const server = http.createServer(app);
+initSocket(server);
 
 // Mount routes
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -58,6 +64,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running in development mode on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server running with WebSockets in development mode on port ${PORT}`);
 });
